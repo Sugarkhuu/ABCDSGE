@@ -122,7 +122,7 @@ function pdm = makepdm(thetas, realdata)
         n = realdata(:,3);
         r = realdata(:,4);
         w = realdata(:,5);
-        pdm = zeros(rows(thetas),6);
+        pdm = zeros(rows(thetas),7);
         for i = 1:rows(thetas)
             % break out params    
             alpha = thetas(i,1);
@@ -147,13 +147,13 @@ function pdm = makepdm(thetas, realdata)
             e = e(3:end,:);
             pdm(i,1) = mean(e);
             pdm(i,2) = mean(e.^2 - 1);
-            %pdm(i,3) = mean(e(1:end-1,:).*e(2:end,:));
-            %e1 = e;
+            pdm(i,3) = mean(e(1:end-1,:).*e(2:end,:));
+            e1 = e;
             % now the Euler eqn
-            cc = c ./lag(c,1);
-            e = beta*cc.^(-gam).*(1 + r -delta)-1;
-            e = e(2:end,:);
-            pdm(i,3) = mean(e);
+            %cc = c ./lag(c,1);
+            %e = (beta*cc.^(-gam).*(1 + (1-alpha)*lag(r,1).*y./(lag(n,1).*lag(w,1))-delta))-1;
+            %e = e(2:end,:);
+            %pdm(i,5) = mean(e);
             % production function
             k = alpha*lag(n,1).*lag(w,1)./lag(r,1)/(1-alpha);
             lnz = log(y) - alpha*log(k) - (1-alpha)*log(n);
@@ -162,16 +162,17 @@ function pdm = makepdm(thetas, realdata)
             e = e/sig_z;
             pdm(i,4) = mean(e);
             pdm(i,5) = mean(e.^2 - 1);
-            %pdm(i,6) = mean(e(1:end-1,:).*e(2:end,:));
-            %pdm(i,7) = mean(e.*e1); % no cross correlation between errors
+            pdm(i,6) = mean(e(1:end-1,:).*e(2:end,:));
+            pdm(i,7) = mean(e.*e1); % no cross correlation between errors
             % law of motion k: good for delta
-            invest = y - c;
-            e = lag(invest,1) + (1 - delta)*lag(k,1) - k;
-            e = e(3:end,:);
-            pdm(i,6) = mean(e);
+            %invest = y - c;
+            %e = lag(invest,1) + (1 - delta)*lag(k,1) - k;
+            %e = e(2:end,:);
+            %pdm(i,5) = mean(e);
         endfor
         pdm = [zeros(1,size(pdm,2)); pdm]; % stack real data stats (zeros) on top
 endfunction
+
 
         pdm = makepdm(thetas, realdata);
         Z = [Z pdm]; 
