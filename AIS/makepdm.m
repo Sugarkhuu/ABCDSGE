@@ -5,7 +5,7 @@ function pdm = makepdm(thetas, realdata)
         n = realdata(:,3);
         r = realdata(:,4);
         w = realdata(:,5);
-        pdm = zeros(rows(thetas),7);
+        pdm = zeros(rows(thetas),6);
         for i = 1:rows(thetas)
             % break out params    
             alpha = thetas(i,1);
@@ -36,7 +36,8 @@ function pdm = makepdm(thetas, realdata)
             % now the Euler eqn
             cc = c ./lag(c,1);
             e = (beta*cc.^(-gam).*(1 + r -delta))-1;
-            e = e(2:end,:);
+            e = e(3:end,:);
+            e2 = e;
             pdm(i,3) = mean(e);
             % production function
             k = alpha*lag(n,1).*lag(w,1)./lag(r,1)/(1-alpha);
@@ -46,20 +47,21 @@ function pdm = makepdm(thetas, realdata)
             e = e/sig_z;
             pdm(i,4) = mean(e);
             pdm(i,5) = mean(e.^2 - 1);
-            pdm(i,6) = mean(e1.*e); % no cross error corr.
+            %pdm(i,6) = mean(e1.*e); % no cross error corr.
+            %pdm(i,7) = mean(e1.*e2); % no cross error corr.
             % MPL
             %lnz = alpha*log(r/alpha) + (1-alpha)*log((1-alpha)./w);
             %e = lnz - rho_z*lag(lnz,1);
-            %e = e(2:end,:);
+            %e = e(3:end,:);
             %e = e/sig_z;
             %pdm(i,5) = mean(e);
             %pdm(i,6) = mean(e.^2 - 1);
+            %pdm(i,10) = mean(e.*e1);
             % law of motion k: good for delta
             invest = y - c;
             e = lag(invest,1) + (1 - delta)*lag(k,1) - k;
             e = e(3:end,:);
-            pdm(i,7) = mean(e);
+            pdm(i,6) = mean(e);
         endfor
-        pdm = [zeros(1,size(pdm,2)); pdm]; % stack real data stats (zeros) on top
 endfunction
 

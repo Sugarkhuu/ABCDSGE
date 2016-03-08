@@ -68,20 +68,22 @@ for rep = 1:mc_reps
             theta0 = asbil_theta;
             USERsimulation;
             Zn = aux_stat(data);
+            realdata = data;
             ok = Zn(1,:) != -1000;
         endwhile	
         Zn = Zn(asbil_selected,:);
         for i = 2:nodes-1
             MPI_Send(Zn, i, mytag, CW);
+            MPI_Send(realdata, i, mytag+1, CW);
         endfor	
         MPI_Send(Zn, 0, mytag, CW);
-        MPI_Send(theta0, 0, mytag+1, CW);
-        MPI_Send(data, 0, mytag+2, CW);
+        MPI_Send(realdata, 0, mytag+1, CW);
+        MPI_Send(theta0, 0, mytag+2, CW);
     else % receive it on the other nodes
         Zn = MPI_Recv(1, mytag, CW);
+        realdata = MPI_Recv(1, mytag+1, CW);
         if  !node
-            theta0 = MPI_Recv(1, mytag+1, CW);
-            realdata = MPI_Recv(1, mytag+2, CW);
+            theta0 = MPI_Recv(1, mytag+2, CW);
         endif    
     endif
     MPI_Barrier(CW);    
@@ -114,9 +116,9 @@ for rep = 1:mc_reps
         test = sum(Zs,2) != 0;
         thetas = thetas(test,:);
         Zs = Zs(test,:);
+        n_pdm = size(Zs,2)-size(Zn,2);
+        Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
         Z = [Zn; Zs];
-        pdm = makepdm(thetas, realdata);
-        Z = [Z pdm]; 
 
         % first pre-whiten using all draws
         %q = quantile(Z,0.99);

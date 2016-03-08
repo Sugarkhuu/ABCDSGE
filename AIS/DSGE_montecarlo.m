@@ -72,18 +72,18 @@ for rep = 1:mc_reps
             USERsimulation;
             Zn = aux_stat(data);
             ok = Zn(1,:) != -1000;
-        endwhile	
+        endwhile
+        realdata = data;    
         Zn = Zn(asbil_selected,:);
         for i = 2:nodes-1
             MPI_Send(Zn, i, mytag, CW);
+            MPI_Send(realdata, i, mytag+1, CW);
         endfor	
         MPI_Send(Zn, 0, mytag, CW);
-        MPI_Send(data, 0, mytag+1, CW);
+        MPI_Send(realdata, 0, mytag+1, CW);
     else % receive it on the other nodes
         Zn = MPI_Recv(1, mytag, CW);
-        if  !node # recieve real data on frontend, for param-dependent moments
-            realdata = MPI_Recv(1, mytag+1, CW);
-        endif    
+        realdata = MPI_Recv(1, mytag+1, CW);
     endif
     MPI_Barrier(CW);    
     Zn = Zn';
@@ -117,9 +117,11 @@ for rep = 1:mc_reps
         endfor      
         % selected bws from tuning
         % selected using prior
-        bwselect = [ 8   16   16   10   11   12   17   20   19]; % for LL
-        bwselectCI = [  5    7   24    8   30   27   27    6   25]; % for LC CIs
-        
+        bwselect = [ 8    5    7   10   30   10    6   16   23]; % for LL
+        bwselectCI = [ 6    7    6    8   30    7   27   23    7 ]; % for LC CIs
+        %bwselect = [ 8   16   16   10   11   12   17   20   19]; % for LL
+        %bwselectCI = [  5    7   24    8   30   27   27    6   25]; % for LC CIs
+         
         % selected using local
         
         bandwidthsCI = bandwidths(bwselectCI,:);
@@ -132,10 +134,9 @@ for rep = 1:mc_reps
         test = sum(Zs,2) != 0;
         thetas = thetas(test,:);
         Zs = Zs(test,:);
+        n_pdm = size(Zs,2)-size(Zn,2);
+        Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
         Z = [Zn; Zs];
-
-        pdm = makepdm(thetas, realdata);
-        Z = [Z pdm]; 
 
         % first pre-whiten using all draws
         %q = quantile(Z,0.99);
