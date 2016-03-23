@@ -17,10 +17,10 @@ function Z = aux_stat(data)
 		test = data > 100;
 		data = test*100+ (1-test).*data;
 		logdata = log(data);
-        lagdata = lags(data,1); # lag one time
+        	lagdata = lags(data,1); # lag one time
 		laglogdata = lags(logdata,1); # lag one time
 		n = rows(data);
-        # drop missing first obs after adding lags
+        	# drop missing first obs after adding lags
 		data = data(2:n,:);
 		logdata = logdata(2:n,:);
 		lagdata = lagdata(2:n,:);
@@ -51,7 +51,7 @@ function Z = aux_stat(data)
 
 			nobs = rows(data);
 
-            % alpha, rho1, sig1 (production function)
+            		% alpha, rho1, sig1 (production function)
 			% use a MA in investment as proxy for capital
 			investment = output - cons;
 			capitalproxy = investment(1:nobs-11,:) +...
@@ -112,19 +112,19 @@ function Z = aux_stat(data)
 			y = data(:,1:5);
 			x = data(:,6:end);
 			n = rows(y);
-            rhos = zeros(5,1);
-            es = zeros(n,5);
-            for i = 1:5
-                    [rho, junk, e] = ols(y(:,i),x(:,i));
-                    rhos(i,:) = rho;
-                    es(:,i) = e;
-            endfor        
+            		rhos = zeros(5,1);
+            		es = zeros(n,5);
+            		for i = 1:5
+                    		[rho, junk, e] = ols(y(:,i),x(:,i));
+                    		rhos(i,:) = rho;
+                    		es(:,i) = e;
+            		endfor        
 			varv = vech(cov(es)); # AR(1) error covariance elements	
 
-            % ratios
-            s1 = mean(cons./output);
-            s2 = mean(intrate./wages);
-            s3 = mean(cons./hours);
+            		% ratios
+            		s1 = mean(cons./output);
+            		s2 = mean(intrate./wages);
+            		s3 = mean(cons./hours);
 			Z = [Z; m(:); s(:); rhos(:); varv(:); s1; s2; s3];
 			Z = real(Z);
 			if check_bad_data(Z)
