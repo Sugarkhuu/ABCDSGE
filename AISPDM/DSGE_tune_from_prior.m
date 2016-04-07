@@ -1,7 +1,7 @@
 outfile = "tunePRIOR.out";
 mc_reps = 100; % number of MC reps
 setupmpi; % sets comm world, nodes, node, etc.
-nworkers = nodes-1;  % number of worker MPI ranks
+nworkers = 25;  % number of worker MPI ranks
 
 % controls for creating the adaptive importance sampling density
 iters = 10;
@@ -11,12 +11,8 @@ particlequantile = 20; % keep the top % of particles
 verbose = false;
 
 % controls for drawing the final sample from mixture of AIS and prior
-mixture = 0.5; % proportion sampled from original prior 
-AISdraws = nworkers*round(8000/nworkers); # number of draws from final AIS density
-
-% controls for the nonparametric fits
-%nneighbors = 300;    
-nbw = 30;
+mixture = 0.1; % proportion sampled from original prior 
+AISdraws = nworkers*round(5000/nworkers); # number of draws from final AIS density
 
 % design
 parameters; % loaded from Common to ensure sync with Gendata
@@ -49,6 +45,7 @@ if !node
     load simdata.paramspace;
     USERthetaZ = clean_data(simdata);
     % containers
+    makebandwidths;
     errors = zeros(mc_reps, nparams,nbw);
     in_ci = zeros(9,nbw);
     rmses = zeros(9,nbw);
@@ -134,9 +131,6 @@ for rep = 1:mc_reps
 		Zn = Z(1,:);
      
         % loop over bandwidths: they go from 0.1 to 10, quadratically
-        for i = 1:nbw
-                bandwidths(i,:) = 0.1 + (10-0.1)*((i-1)/(nbw-1))^2;
-        endfor        
         for bwiter = 1:nbw
             bandwidth = bandwidths(bwiter,:);        
             % now the fit using mean and mediani

@@ -1,6 +1,7 @@
 outfile = "tuneLOCAL.out";
 mc_reps = 100; % number of MC reps
-nworkers = 30;  % number of worker MPI ranks
+setupmpi; % sets comm world, nodes, node, etc.
+nworkers = 25;  % number of worker MPI ranks
 
 % controls for creating the adaptive importance sampling density
 iters = 10;
@@ -10,12 +11,8 @@ particlequantile = 20; % keep the top % of particles
 verbose = false;
 
 % controls for drawing the final sample from mixture of AIS and prior
-mixture = 0.5; % proportion sampled from original prior 
+mixture = 0.1; % proportion sampled from original prior 
 AISdraws = nworkers*round(5000/nworkers); # number of draws from final AIS density
-
-% controls for the nonparametric fits
-%nneighbors = 300;    
-nbw = 30;
 
 % design
 parameters; % loaded from Common to ensure sync with Gendata
@@ -35,7 +32,6 @@ asbil_theta = theta0; setupdynare; % sets structures and RNG for simulations
 MPI_Barrier(CW);
 warning ( "off") ;
 
-
 % number of particles for each node
 particles_per_node = floor(nparticles/(nodes-1));
 
@@ -48,43 +44,42 @@ if !node
     load simdata.paramspace;
     USERthetaZ = clean_data(simdata);
     % containers
+    makebandwidths;
     errors = zeros(mc_reps, nparams,nbw);
     in_ci = zeros(9,nbw);
     rmses = zeros(9,nbw);
     cicoverage = rmses;
 endif
 
-
-
 for rep = 1:mc_reps
     % the 'true' Zn
     if node==1 % simulate on node1 (can't do it on 0, no *.modfile
-        % next line for tuning to true theta0
-        %asbil_theta = theta0;
-        % next three lines for tuning to draws from first round
         if rep==1
-                load DSGE_tune_from_prior.out;
+                load tuned_from_prior.out;
         endif
         i = randi(1000);
         asbil_theta = thetahatsLL(i,:)';
         ok = false;
         while !ok    
-            %asbil_theta = sample_from_prior();
             theta0 = asbil_theta;
             USERsimulation;
             Zn = aux_stat(data);
+            realdata = data;
             ok = Zn(1,:) != -1000;
         endwhile	
         Zn = Zn(asbil_selected,:);
         for i = 2:nodes-1
             MPI_Send(Zn, i, mytag, CW);
+            MPI_Send(realdata, i, mytag+1, CW);
         endfor	
         MPI_Send(Zn, 0, mytag, CW);
-        MPI_Send(theta0, 0, mytag+1, CW);
+        MPI_Send(realdata, 0, mytag+1, CW);
+        MPI_Send(theta0, 0, mytag+2, CW);
     else % receive it on the other nodes
         Zn = MPI_Recv(1, mytag, CW);
+        realdata = MPI_Recv(1, mytag+1, CW);
         if  !node
-            theta0 = MPI_Recv(1, mytag+1, CW);
+            theta0 = MPI_Recv(1, mytag+2, CW);
         endif    
     endif
     MPI_Barrier(CW);    
@@ -117,8 +112,10 @@ for rep = 1:mc_reps
         test = sum(Zs,2) != 0;
         thetas = thetas(test,:);
         Zs = Zs(test,:);
+        n_pdm = size(Zs,2)-size(Zn,2);
+        Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
         Z = [Zn; Zs];
-        
+
         % first pre-whiten using all draws
         %q = quantile(Z,0.99);
         %test = Z < q;
@@ -132,9 +129,6 @@ for rep = 1:mc_reps
 		Zn = Z(1,:);
      
         % loop over bandwidths: they go from 0.1 to 10, quadratically
-        for i = 1:nbw
-                bandwidths(i,:) = 0.1 + (10-0.1)*((i-1)/(nbw-1))^2;
-        endfor        
         for bwiter = 1:nbw
             bandwidth = bandwidths(bwiter,:);        
             % now the fit using mean and mediani
@@ -142,8 +136,8 @@ for rep = 1:mc_reps
             weight = weight/sum(weight(:));
             % the nonparametric fits, use local linear
             r = LocalPolynomial(thetas, Zs, Zn,  weight, false, 1);
-            thetahatLL = r.mean';
-            thetahatLL = keep_in_support(thetahatLL); % chop off estimates that go out of support (rare, but happens)
+            thetahat = r.mean';
+            thetahat = keep_in_support(thetahat); % chop off estimates that go out of support (rare, but happens)
             % now CIs
             weight = __kernel_normal((Zs-Zn)/bandwidth);
             weight = weight/sum(weight(:));
@@ -154,7 +148,7 @@ for rep = 1:mc_reps
             % CI coverage
             in10 = ((theta0 > r.c') & (theta0 < r.d'));
             in_ci(:,bwiter) = in_ci(:,bwiter) + in10;
-            errors(rep,:,bwiter) = thetahatLL'- theta0';
+            errors(rep,:,bwiter) = thetahat'- theta0';
             rmse = zeros(9,1);
             if rep > 1
                 printf("bandwidth = %f\n", bandwidth);    

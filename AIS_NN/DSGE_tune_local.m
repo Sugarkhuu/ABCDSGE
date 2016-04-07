@@ -1,6 +1,5 @@
-outfile = "tunePRIOR.out";
+outfile = "tuneLOCAL.out";
 mc_reps = 100; % number of MC reps
-setupmpi; % sets comm world, nodes, node, etc.
 nworkers = 25;  % number of worker MPI ranks
 
 % controls for creating the adaptive importance sampling density
@@ -23,9 +22,6 @@ prior_params = [lb ub];
 theta0 = lb_param_ub(:,2); % original form
 nparams = rows(theta0);
 
-% which statistics to use
-load selected; % selected statistics
-asbil_selected = selected;
 
 setupmpi; % sets comm world, nodes, node, etc.
 asbil_theta = theta0; setupdynare; % sets structures and RNG for simulations
@@ -60,16 +56,20 @@ for rep = 1:mc_reps
         % next line for tuning to true theta0
         %asbil_theta = theta0;
         % next two lines for tuning to draws from prior
+        if rep==1
+                load tuned_from_prior.out;
+        endif
+        i = randi(1000);
+        asbil_theta = thetahatsLL(i,:)';
         ok = false;
         while !ok    
-            asbil_theta = sample_from_prior();
             theta0 = asbil_theta;
             USERsimulation;
             Zn = aux_stat(data);
             realdata = data;
             ok = Zn(1,:) != -1000;
         endwhile	
-        Zn = Zn(asbil_selected,:);
+        Zn = NNstat(Zn');
         for i = 2:nodes-1
             MPI_Send(Zn, i, mytag, CW);
             MPI_Send(realdata, i, mytag+1, CW);
@@ -85,9 +85,8 @@ for rep = 1:mc_reps
         endif    
     endif
     MPI_Barrier(CW);    
-    Zn = Zn';
     
-    % call the algoritm that gets AIS particles
+    % call the algorithm that gets AIS particles
     if ! node
             tic;
             printf("Starting CreateAIS\n");

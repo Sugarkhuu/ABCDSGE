@@ -5,7 +5,6 @@
 % in README
 outfile = "tuned_local.out";
 mc_reps = 100; % number of MC reps
-setupmpi; % sets comm world, nodes, node, etc.
 nworkers = 25;  % number of worker MPI ranks
 
 % controls for creating the adaptive importance sampling density
@@ -17,7 +16,10 @@ verbose = false;
 
 % controls for drawing the final sample from mixture of AIS and prior
 mixture = 0.1; % proportion sampled from original prior 
-AISdraws = nworkers*round(5000/nworkers); # number of draws from final AIS density
+AISdraws = nworkers*round(8000/nworkers); # number of draws from final AIS density
+
+% controls for the nonparametric fits
+nneighbors = 500;    
 
 % design
 parameters; % loaded from Common to ensure sync with Gendata
@@ -28,11 +30,12 @@ prior_params = [lb ub];
 theta0 = lb_param_ub(:,2); % original form
 nparams = rows(theta0);
 
-% which statistics to use
-load selected; % selected statistics
-asbil_selected = selected;
+% NOT NEEDED WITH NN STATS
+%which statistics to use
+%load selected; % selected statistics
+%asbil_selected = selected;
 
-
+setupmpi; % sets comm world, nodes, node, etc.
 asbil_theta = theta0; setupdynare; % sets structures and RNG for simulations
 MPI_Barrier(CW);
 warning ( "off") ;
@@ -71,8 +74,10 @@ for rep = 1:mc_reps
             Zn = aux_stat(data);
             ok = Zn(1,:) != -1000;
         endwhile
-        realdata = data;    
-        Zn = Zn(asbil_selected,:);
+        realdata = data;
+        % this switches to use the neural net stat, instead of selected stats
+        % Zn = Zn(asbil_selected,:);
+        Zn = NNstat(Zn');
         for i = 2:nodes-1
             MPI_Send(Zn, i, mytag, CW);
             MPI_Send(realdata, i, mytag+1, CW);
@@ -84,8 +89,6 @@ for rep = 1:mc_reps
         realdata = MPI_Recv(1, mytag+1, CW);
     endif
     MPI_Barrier(CW);    
-    Zn = Zn';
- 
 	% call the algoritm that gets AIS particles
 	if !node
             printf("starting AIS\n");
@@ -111,11 +114,13 @@ for rep = 1:mc_reps
         makebandwidths;
         % selected bws from tuning
         % selected using prior
-        % bwselect = [ 9    9    8    7    9    6    9   13   12 ]; % for LL
-        % bwselectCI = [ 13   16   11   14   13   13   15   10   15]; % for LC CIs
+        %bwselect = [ 10   10    1   21   14   15   15   11   30]; % for LL
+        %bwselectCI = [ 4   14    4    5    5    7    9    6    8 ]; % for LC CIs
+        % tuned locally
+        bwselect = [ 23    9    7   12   22   23   24   13   11 ]; % for LL
+        bwselectCI = [15   14    3   18   10   24   22   16   18 ]; % for LC CIs
+         
         % selected using local
-        bwselect = [ 5    5    6   11    5   14   19    6    5 ]; % for LL
-        bwselectCI = [13   16   15    6   30   12    5   12   13 ]; % for LC CIs
         
         bandwidthsCI = bandwidths(bwselectCI,:);
         bandwidths = bandwidths(bwselect,:);

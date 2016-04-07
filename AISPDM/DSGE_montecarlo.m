@@ -4,9 +4,9 @@
 % To recover them, follow the steps
 % in README
 outfile = "tuned_local.out";
-mc_reps = 1000; % number of MC reps
+mc_reps = 100; % number of MC reps
 setupmpi; % sets comm world, nodes, node, etc.
-nworkers = nodes-1;  % number of worker MPI ranks
+nworkers = 25;  % number of worker MPI ranks
 
 % controls for creating the adaptive importance sampling density
 iters = 10;
@@ -16,8 +16,8 @@ particlequantile = 20; % keep the top % of particles
 verbose = false;
 
 % controls for drawing the final sample from mixture of AIS and prior
-mixture = 0.5; % proportion sampled from original prior 
-AISdraws = nworkers*round(8000/nworkers); # number of draws from final AIS density
+mixture = 0.1; % proportion sampled from original prior 
+AISdraws = nworkers*round(5000/nworkers); # number of draws from final AIS density
 
 % design
 parameters; % loaded from Common to ensure sync with Gendata
@@ -108,11 +108,7 @@ for rep = 1:mc_reps
    	if !node
         toc;    
         % create the bandwidths used in tuning
-        nbw = 30;
-        bandwidths = zeros(nbw,1);
-        for i = 1:nbw
-                bandwidths(i,:) = 0.1 + (10-0.1)*((i-1)/(nbw-1))^2;
-        endfor      
+        makebandwidths;
         % selected bws from tuning
         % selected using prior
         % bwselect = [ 9    9    8    7    9    6    9   13   12 ]; % for LL
