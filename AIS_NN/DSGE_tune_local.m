@@ -1,5 +1,5 @@
 outfile = "tuneLOCAL.out";
-mc_reps = 100; % number of MC reps
+mc_reps = 50; % number of MC reps
 nworkers = 25;  % number of worker MPI ranks
 
 % controls for creating the adaptive importance sampling density
@@ -10,7 +10,7 @@ particlequantile = 20; % keep the top % of particles
 verbose = false;
 
 % controls for drawing the final sample from mixture of AIS and prior
-mixture = 0.1; % proportion sampled from original prior 
+mixture = 0.5; % proportion sampled from original prior 
 AISdraws = nworkers*round(5000/nworkers); # number of draws from final AIS density
 
 % design
@@ -59,7 +59,7 @@ for rep = 1:mc_reps
         if rep==1
                 load tuned_from_prior.out;
         endif
-        i = randi(1000);
+        i = randi(50);
         asbil_theta = thetahatsLL(i,:)';
         ok = false;
         while !ok    
@@ -113,8 +113,6 @@ for rep = 1:mc_reps
         test = sum(Zs,2) != 0;
         thetas = thetas(test,:);
         Zs = Zs(test,:);
-        n_pdm = size(Zs,2)-size(Zn,2);
-        Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
         Z = [Zn; Zs];
 
         % first pre-whiten using all draws
@@ -143,8 +141,8 @@ for rep = 1:mc_reps
             weight = __kernel_normal((Zs-Zn)/bandwidth);
             weight = weight/sum(weight(:));
             % the nonparametric fits, use local linear
-            %r = LocalPolynomial(thetas, Zs, Zn,  weight, true, 1);
-            r = LocalConstant(thetas, weight, true);
+            %r = LocalConstant(thetas, weight, true);
+            r = LocalPolynomial(thetas, Zs, Zn, weight, true, 1);
 
             % CI coverage
             in10 = ((theta0 > r.c') & (theta0 < r.d'));

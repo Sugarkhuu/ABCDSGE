@@ -16,7 +16,7 @@ particlequantile = 20; % keep the top % of particles
 verbose = false;
 
 % controls for drawing the final sample from mixture of AIS and prior
-mixture = 0.1; % proportion sampled from original prior 
+mixture = 0.5; % proportion sampled from original prior 
 AISdraws = nworkers*round(5000/nworkers); # number of draws from final AIS density
 
 % design
@@ -111,11 +111,11 @@ for rep = 1:mc_reps
         makebandwidths;
         % selected bws from tuning
         % selected using prior
-        % bwselect = [ 9    9    8    7    9    6    9   13   12 ]; % for LL
-        % bwselectCI = [ 13   16   11   14   13   13   15   10   15]; % for LC CIs
+        %bwselect = [5    5    5    5    5   10    5   11    6   ]; % for LL
+        %bwselectCI = [ 9    7    6    7   13   12    7    8   20  ]; % for LC CIs
         % selected using local
-        bwselect = [ 5    5    6   11    5   14   19    6    5 ]; % for LL
-        bwselectCI = [13   16   15    6   30   12    5   12   13 ]; % for LC CIs
+        bwselect = [ 5    5    5    6    6    6   20    6   20 ]; % for LL
+        bwselectCI = [ 17   17    5    9    5   14   13   19   13 ]; % for LC CIs
         
         bandwidthsCI = bandwidths(bwselectCI,:);
         bandwidths = bandwidths(bwselect,:);
@@ -188,7 +188,8 @@ for rep = 1:mc_reps
         lower = zeros(9,1);
         upper = lower;
         for i = 1:9
-            r = LocalConstant(thetas(:,i), weights(:,i), true);
+            %r = LocalConstant(thetas(:,i), weights(:,i), true);
+            r = LocalPolynomial(thetas(:,i), Zs, Zn, weights(:,i), true, 1);
             lower(i,:) = r.c;
             upper(i,:) = r.d;
         endfor    

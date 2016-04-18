@@ -1,5 +1,5 @@
 outfile = "tuneLOCAL.out";
-mc_reps = 100; % number of MC reps
+mc_reps = 50; % number of MC reps
 setupmpi; % sets comm world, nodes, node, etc.
 nworkers = 25;  % number of worker MPI ranks
 
@@ -11,7 +11,7 @@ particlequantile = 20; % keep the top % of particles
 verbose = false;
 
 % controls for drawing the final sample from mixture of AIS and prior
-mixture = 0.1; % proportion sampled from original prior 
+mixture = 0.5; % proportion sampled from original prior 
 AISdraws = nworkers*round(5000/nworkers); # number of draws from final AIS density
 
 % design
@@ -57,7 +57,7 @@ for rep = 1:mc_reps
         if rep==1
                 load tuned_from_prior.out;
         endif
-        i = randi(1000);
+        i = randi(50);
         asbil_theta = thetahatsLL(i,:)';
         ok = false;
         while !ok    

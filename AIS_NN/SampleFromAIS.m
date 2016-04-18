@@ -47,13 +47,8 @@ end
 
 % main algorithm code, kept in one place to ensure Monte Carlo and estimation are doing the same thing
 if node
-    % determine number of param-dep moments
-    junk = sample_from_prior();
-    junk = makepdm(junk', realdata);
-    n_pdm = size(junk,2);
-            
     thetas = zeros(reps_per_node, nparams);
-    Zs = zeros(reps_per_node, size(Zn,2)+n_pdm);
+    Zs = zeros(reps_per_node, size(Zn,2));
 	for i = 1:reps_per_node;
 		ok = false;
         while !ok
@@ -75,8 +70,7 @@ if node
         ok = Z(:,1) != -1000;
         %Z = Z(asbil_selected,:);
         Z = NNstat(Z');
-        pdm = makepdm(asbil_theta',data)-makepdm(asbil_theta', realdata);
-        Zs(i,:) = [Z pdm];
+        Zs(i,:) = Z;
 	endfor
     contribs = [thetas Zs];
     MPI_Send(contribs, 0, mytag, CW); % send selected to frontend, to sync across nodes

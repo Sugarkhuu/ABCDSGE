@@ -1,8 +1,3 @@
-% note: the selected bandwidths are not
-% the correct tuned ones in the paper's 
-% results - I forget to save those
-% To recover them, follow the steps
-% in README
 outfile = "tuned_local.out";
 mc_reps = 100; % number of MC reps
 nworkers = 25;  % number of worker MPI ranks
@@ -15,11 +10,8 @@ particlequantile = 20; % keep the top % of particles
 verbose = false;
 
 % controls for drawing the final sample from mixture of AIS and prior
-mixture = 0.1; % proportion sampled from original prior 
-AISdraws = nworkers*round(8000/nworkers); # number of draws from final AIS density
-
-% controls for the nonparametric fits
-nneighbors = 500;    
+mixture = 0.5; % proportion sampled from original prior 
+AISdraws = nworkers*round(5000/nworkers); # number of draws from final AIS density
 
 % design
 parameters; % loaded from Common to ensure sync with Gendata
@@ -29,11 +21,6 @@ ub = lb_param_ub(:,3);
 prior_params = [lb ub];
 theta0 = lb_param_ub(:,2); % original form
 nparams = rows(theta0);
-
-% NOT NEEDED WITH NN STATS
-%which statistics to use
-%load selected; % selected statistics
-%asbil_selected = selected;
 
 setupmpi; % sets comm world, nodes, node, etc.
 asbil_theta = theta0; setupdynare; % sets structures and RNG for simulations
@@ -114,11 +101,11 @@ for rep = 1:mc_reps
         makebandwidths;
         % selected bws from tuning
         % selected using prior
-        %bwselect = [ 10   10    1   21   14   15   15   11   30]; % for LL
-        %bwselectCI = [ 4   14    4    5    5    7    9    6    8 ]; % for LC CIs
+        %bwselect = [ 1    9   13    9    8   12   14    6   12 ]; % for LL
+        %bwselectCI = [ 1   12    2   12    2   14    8    2   13  ]; % for LC CIs
         % tuned locally
-        bwselect = [ 23    9    7   12   22   23   24   13   11 ]; % for LL
-        bwselectCI = [15   14    3   18   10   24   22   16   18 ]; % for LC CIs
+        bwselect = [1   12   12    1   10   20    2    1   11  ]; % for LL
+        bwselectCI = [ 13   15    2    1    1    2    2   13   12 ]; % for LC CIs
          
         % selected using local
         
@@ -193,7 +180,8 @@ for rep = 1:mc_reps
         lower = zeros(9,1);
         upper = lower;
         for i = 1:9
-            r = LocalConstant(thetas(:,i), weights(:,i), true);
+            %r = LocalConstant(thetas(:,i), weights(:,i), true);
+            r = LocalPolynomial(thetas(:,i), Zs, Zn, weights(:,i), true, 1);
             lower(i,:) = r.c;
             upper(i,:) = r.d;
         endfor    
