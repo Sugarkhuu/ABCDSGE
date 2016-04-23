@@ -29,7 +29,6 @@ function theta_s = sample_from_particles(particles, delta, lb, ub)
 	while !ok
 		trial = theta_s;
        	trial(:,j) = trial(:,j) + delta(:,j).*randn();
-       	%trial = theta_s + 0.2*delta.*randn(size(theta_s));
 		ok = all(trial >= lb') & all(trial <= ub');
 	endwhile	
 	theta_s = trial';
@@ -38,16 +37,10 @@ endfunction
 % selection
 function [particles, dist] = select_particles(Zn, oldparticles, newparticles, nparticles, scale)
 	dimZ = columns(Zn);
-	dimTheta = columns(oldparticles)-dimZ;
+    dimTheta = columns(oldparticles)-dimZ;
 	particles = [oldparticles; newparticles];
-	Zs = particles(:,dimTheta+1:end);
+    Zs = particles(:,dimTheta+1:end);
 	Z = [Zn; Zs];
-    q = quantile(Z,0.99);
-	test = Z < q;
-    Z = test.*Z + (1-test).*q;
-	q = quantile(-Z,0.99);
-	test = -Z < q;
-	Z = test.*Z - (1-test).*q;
     Z = Z./scale;
     Zn = Z(1,:);
 	Zs = Z(2:end,:);
@@ -78,12 +71,16 @@ if node
 			while !ok
                 asbil_theta = sample_from_particles(asbil_thetas, particle_sd, lb, ub);
                 USERsimulation; % requires 'asbil_theta', and perhaps
-			      			% other things to be defined, generates 'data'
+			    % other things to be defined, generates 'data'
 				Z = aux_stat(data);
-				Z = Z(asbil_selected,:);
-				if Z(1,:) != -1000  % this is the code for bad simulation results
+                if Z(1,:) != -1000  % this is the code for bad simulation results
 					ok = true;
-					contribs(i,:) = [asbil_theta' Z'];
+				    if DO_NN
+                        Z = NNstat(Z');
+                    else    
+				        Z = Z(asbil_selected,:);
+                    endif    
+					contribs(i,:) = [asbil_theta' Z];
 				endif
 			endwhile	
 		endfor
@@ -93,18 +90,14 @@ else % frontend
     % the initial particles from large sample from prior
     thetas = USERthetaZ(:,1:nparams);
 	Zs = USERthetaZ(:,nparams+1:end);
-	Zs = Zs(:,asbil_selected);
+    if DO_NN
+        Zs = NNstat(Zs);
+    else
+        Zs = Zs(:,asbil_selected);
+    endif
 	particles = [thetas Zs];
-   	% trim by quantiles to control outliers
-    q = quantile(Zs,0.99);
-	test = Zs < q;
-    Zs = test.*Zs + (1-test).*q;
-	q = quantile(-Zs,0.99);
-	test = -Zs < q;
-	Zs = test.*Zs - (1-test).*q;
-    scale = std(Zs);
+    scale = std([Zn;Zs]);
 	[particles, dist] = select_particles(Zn, particles(1:end-1,:), particles(end,:), initialparticles, scale);
-	
 	for iter = 1:iters	
 		% send particles to all nodes
 		for i = 1:nodes-1
@@ -122,7 +115,6 @@ else % frontend
 		endfor
         if iter < iters
                 keep = ceil(nparticles*particlequantile/100);
-                scale = std(oldparticles(:,nparams+1:end));
 	            [particles, dist] = select_particles(Zn, oldparticles, particles, keep, scale);
         endif
 		if verbose

@@ -1,23 +1,27 @@
-% note: the selected bandwidths are not
-% the correct tuned ones in the paper's 
-% results - I forget to save those
-% To recover them, follow the steps
-% in README
-outfile = "tuned_local.out";
+#{
+How to use this:
+Set DO_NN and DO_PRM as desired.
+1 run DSGE_tune, setting DO_LOCAL = false
+2 run DSGE_montecarlo
+3 change DO_LOCAL to true in DSGE_tune and DSGE_montecarlo
+4 repeat steps 1 and 2
+5 create an appropriate output directory given DO_NN and DO_PDM,
+  and move *.out to that dir.
+6 repeat 1-5 for all the NN and PDM combos  
+#}
+DO_NN = true;
+DO_PDM = false;
+DO_LOCAL = true;
+
+if !DO_LOCAL
+    outfile = "tuned_from_prior.out";
+else
+    outfile = "tuned_local.out";
+endif    
 mc_reps = 100; % number of MC reps
-setupmpi; % sets comm world, nodes, node, etc.
 nworkers = 25;  % number of worker MPI ranks
 
-% controls for creating the adaptive importance sampling density
-iters = 10;
-initialparticles = nworkers*round(300/nworkers); % number to take from sample from prior
-nparticles = nworkers*round(300/nworkers); % number per round
-particlequantile = 20; % keep the top % of particles
-verbose = false;
-
-% controls for drawing the final sample from mixture of AIS and prior
-mixture = 0.5; % proportion sampled from original prior 
-AISdraws = nworkers*round(5000/nworkers); # number of draws from final AIS density
+SetupAIS; # done in one place for uniformity
 
 % design
 parameters; % loaded from Common to ensure sync with Gendata
@@ -28,11 +32,7 @@ prior_params = [lb ub];
 theta0 = lb_param_ub(:,2); % original form
 nparams = rows(theta0);
 
-% which statistics to use
-load selected; % selected statistics
-asbil_selected = selected;
-
-
+setupmpi; % sets comm world, nodes, node, etc.
 asbil_theta = theta0; setupdynare; % sets structures and RNG for simulations
 MPI_Barrier(CW);
 warning ( "off") ;
@@ -71,8 +71,10 @@ for rep = 1:mc_reps
             Zn = aux_stat(data);
             ok = Zn(1,:) != -1000;
         endwhile
-        realdata = data;    
-        Zn = Zn(asbil_selected,:);
+        realdata = data;
+        if DO_NN
+            Zn = NNstat(Zn');
+        endif
         for i = 2:nodes-1
             MPI_Send(Zn, i, mytag, CW);
             MPI_Send(realdata, i, mytag+1, CW);
@@ -83,9 +85,14 @@ for rep = 1:mc_reps
         Zn = MPI_Recv(1, mytag, CW);
         realdata = MPI_Recv(1, mytag+1, CW);
     endif
+    if DO_PDM
+        pdm = makepdm(asbil_theta',data);
+        n_pdm = size(pdm,2);
+        Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
+    else
+        n_pdm = 0;    
+    endif  
     MPI_Barrier(CW);    
-    Zn = Zn';
- 
 	% call the algoritm that gets AIS particles
 	if !node
             printf("starting AIS\n");
@@ -109,35 +116,19 @@ for rep = 1:mc_reps
         toc;    
         % create the bandwidths used in tuning
         makebandwidths;
-        % selected bws from tuning
-        % selected using prior
-        %bwselect = [5    5    5    5    5   10    5   11    6   ]; % for LL
-        %bwselectCI = [ 9    7    6    7   13   12    7    8   20  ]; % for LC CIs
-        % selected using local
-        bwselect = [ 5    5    5    6    6    6   20    6   20 ]; % for LL
-        bwselectCI = [ 17   17    5    9    5   14   13   19   13 ]; % for LC CIs
-        
+        load SelectedBandwidths; # these come from most recent run of DSGE_tune.m
         bandwidthsCI = bandwidths(bwselectCI,:);
         bandwidths = bandwidths(bwselect,:);
-
 	    printf("starting fit and CI\n");
-        tic;
 		thetas = contribs(:,1:nparams);
         Zs = contribs(:, nparams+1:end);
-        test = sum(Zs,2) != 0;
+        test = Zs(:,1) != -1000;
         thetas = thetas(test,:);
         Zs = Zs(test,:);
-        n_pdm = size(Zs,2)-size(Zn,2);
-        Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
+        if DO_PDM  # pad out with zeros
+            Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
+        endif
         Z = [Zn; Zs];
-
-        % first pre-whiten using all draws
-        %q = quantile(Z,0.99);
-        %test = Z < q;
-        %Z = test.*Z + (1-test).*q;
-        %q = quantile(-Z,0.99);
-        %test = -Z < q;
-        %Z = test.*Z - (1-test).*q;
 	    stdZ = std(Z);
         Z = Z ./stdZ;
         Zs = Z(2:end,:);
@@ -182,14 +173,13 @@ for rep = 1:mc_reps
             weights(:,i) = __kernel_normal((Zs-Zn)/bandwidthsCI(i,:));
         endfor         
         weights = AISweights.*weights; # AIS_weights != 1 is for SBIL by AIS
-        %weights = weights + eps; # keep positive
         weights = weights./sum(weights);
         % for CIs, use local constant
         lower = zeros(9,1);
         upper = lower;
         for i = 1:9
-            %r = LocalConstant(thetas(:,i), weights(:,i), true);
-            r = LocalPolynomial(thetas(:,i), Zs, Zn, weights(:,i), true, 1);
+            r = LocalConstant(thetas(:,i), weights(:,i), true);
+            %r = LocalPolynomial(thetas(:,i), Zs, Zn, weights(:,i), true, 1);
             lower(i,:) = r.c;
             upper(i,:) = r.d;
         endfor    

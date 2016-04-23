@@ -1,36 +1,31 @@
-outfile = "tuneLOCAL.out";
+DO_NN = true;
+DO_PDM = false;
+DO_LOCAL = true;
+
+if DO_LOCAL
+    outfile = "tuneLOCAL.out";
+else
+    outfile = "tunePRIOR.out";
+endif
+
 mc_reps = 50; % number of MC reps
-setupmpi; % sets comm world, nodes, node, etc.
 nworkers = 25;  % number of worker MPI ranks
 
-% controls for creating the adaptive importance sampling density
-iters = 10;
-initialparticles = nworkers*round(300/nworkers); % number to take from sample from prior
-nparticles = nworkers*round(300/nworkers); % number per round
-particlequantile = 20; % keep the top % of particles
-verbose = false;
-
-% controls for drawing the final sample from mixture of AIS and prior
-mixture = 0.5; % proportion sampled from original prior 
-AISdraws = nworkers*round(5000/nworkers); # number of draws from final AIS density
+SetupAIS;
 
 % design
 parameters; % loaded from Common to ensure sync with Gendata
-
 lb = lb_param_ub(:,1);
 ub = lb_param_ub(:,3);
 prior_params = [lb ub];
 theta0 = lb_param_ub(:,2); % original form
 nparams = rows(theta0);
 
-% which statistics to use
-load selected; % selected statistics
-asbil_selected = selected;
-
 setupmpi; % sets comm world, nodes, node, etc.
 asbil_theta = theta0; setupdynare; % sets structures and RNG for simulations
 MPI_Barrier(CW);
 warning ( "off") ;
+
 
 % number of particles for each node
 particles_per_node = floor(nparticles/(nodes-1));
@@ -54,11 +49,18 @@ endif
 for rep = 1:mc_reps
     % the 'true' Zn
     if node==1 % simulate on node1 (can't do it on 0, no *.modfile
-        if rep==1
-                load tuned_from_prior.out;
+        % next line for tuning to true theta0
+        %asbil_theta = theta0;
+        % next two lines for tuning to draws from prior
+        if DO_LOCAL
+            if rep==1
+                    load tuned_from_prior.out;
+            endif
+            i = randi(size(thetahatsLL,1));
+            asbil_theta = thetahatsLL(i,:)';
+        else
+                asbil_theta = sample_from_prior();
         endif
-        i = randi(50);
-        asbil_theta = thetahatsLL(i,:)';
         ok = false;
         while !ok    
             theta0 = asbil_theta;
@@ -67,7 +69,9 @@ for rep = 1:mc_reps
             realdata = data;
             ok = Zn(1,:) != -1000;
         endwhile	
-        Zn = Zn(asbil_selected,:);
+        if DO_NN
+            Zn = NNstat(Zn');
+        endif
         for i = 2:nodes-1
             MPI_Send(Zn, i, mytag, CW);
             MPI_Send(realdata, i, mytag+1, CW);
@@ -82,10 +86,15 @@ for rep = 1:mc_reps
             theta0 = MPI_Recv(1, mytag+2, CW);
         endif    
     endif
+    if DO_PDM
+        pdm = makepdm(asbil_theta', realdata);
+        n_pdm = size(pdm,2);
+    else
+        n_pdm = 0;    
+    endif    
     MPI_Barrier(CW);    
-    Zn = Zn';
     
-    % call the algoritm that gets AIS particles
+    % call the algorithm that gets AIS particles
     if ! node
             tic;
             printf("Starting CreateAIS\n");
@@ -99,30 +108,23 @@ for rep = 1:mc_reps
             printf("Starting SampleFromAIS\n");
             tic;
     endif
-
+    
     SampleFromAIS; # this samples from AIS density
-
-
+    
     % see the results
     if !node
         toc;
         printf("Starting fit and CI\n");
         thetas = contribs(:,1:nparams);
         Zs = contribs(:, nparams+1:end);
-        test = sum(Zs,2) != 0;
+        if DO_PDM  # pad out with zeros
+            Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
+        endif
+        test = Zs(:,1) != -1000;
         thetas = thetas(test,:);
         Zs = Zs(test,:);
-        n_pdm = size(Zs,2)-size(Zn,2);
-        Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
+        dstats([thetas Zs]);
         Z = [Zn; Zs];
-
-        % first pre-whiten using all draws
-        %q = quantile(Z,0.99);
-        %test = Z < q;
-        %Z = test.*Z + (1-test).*q;
-        %q = quantile(-Z,0.99);
-        %test = -Z < q;
-        %Z = test.*Z - (1-test).*q;
 	    stdZ = std(Z);
         Z = Z ./stdZ;
         Zs = Z(2:end,:);
@@ -142,8 +144,8 @@ for rep = 1:mc_reps
             weight = __kernel_normal((Zs-Zn)/bandwidth);
             weight = weight/sum(weight(:));
             % the nonparametric fits, use local linear
-            r = LocalPolynomial(thetas, Zs, Zn,  weight, true, 1);
-            %r = LocalConstant(thetas, weight, true);
+            r = LocalConstant(thetas, weight, true);
+            %r = LocalPolynomial(thetas, Zs, Zn, weight, true, 1);
 
             % CI coverage
             in10 = ((theta0 > r.c') & (theta0 < r.d'));
@@ -183,6 +185,10 @@ for rep = 1:mc_reps
         save(outfile, "bandwidths", "cicoverage", "rmses");
     endif
 endfor
-        
+if !node
+    [junk, bwselect] = min(rmses');
+    [junk, bwselectCI] = min(abs(cicoverage'-0.9));
+    save SelectedBandwidths bwselect bwselectCI;
+end    
 if not(MPI_Finalized) MPI_Finalize; endif
 

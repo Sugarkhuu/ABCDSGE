@@ -48,7 +48,7 @@ end
 % main algorithm code, kept in one place to ensure Monte Carlo and estimation are doing the same thing
 if node
     thetas = zeros(reps_per_node, nparams);
-    Zs = zeros(reps_per_node, size(Zn,2));
+    Zs = zeros(reps_per_node, size(Zn,2)+n_pdm);
 	for i = 1:reps_per_node;
 		ok = false;
         while !ok
@@ -58,7 +58,6 @@ if node
                 thetass = sample_from_AIS(particles(:,1:nparams));
             endif
             ok = (0<thetass(2,:)) & (thetass(2,:)< 1) & (0 < thetass(3,:)) & (thetass(3,:) < 1) & (0<thetass(5,:))  & (thetass(5,:)< 1) & (0<thetass(7,:)) & (thetass(7,:) < 1);
-
         endwhile
         thetass(6,:) = abs(thetass(6,:));
         thetass(8,:) = abs(thetass(8,:));
@@ -68,8 +67,20 @@ if node
         USERsimulation;
         Z = aux_stat(data);
         ok = Z(:,1) != -1000;
-        Z = Z(asbil_selected,:);
-        Zs(i,:) = Z';
+        if ok
+            if DO_NN
+                Z = NNstat(Z');
+            else
+                Z = Z(asbil_selected,:)';
+            endif
+            if DO_PDM    
+                pdm = makepdm(asbil_theta',data)-makepdm(asbil_theta', realdata);
+                Z = [Z pdm];
+            end     
+        else
+            Z = -1000*ones(1,size(Zs,2));
+        endif    
+        Zs(i,:) = Z;
 	endfor
     contribs = [thetas Zs];
     MPI_Send(contribs, 0, mytag, CW); % send selected to frontend, to sync across nodes

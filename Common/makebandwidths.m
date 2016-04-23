@@ -1,6 +1,6 @@
 % create the bandwidths used in tuning
-nbw = 20;
+nbw = 25;
 bandwidths = zeros(nbw,1);
 for i = 1:nbw
-        bandwidths(i,:) = 0.01 + (10-0.01)*((i-1)/(nbw-1))^2;
+        bandwidths(i,:) = 0.001 + (10-0.001)*((i-1)/(nbw-1))^2;
 endfor 

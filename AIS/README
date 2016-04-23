@@ -1,3 +1,5 @@
+This replaces the AIS selected stats with the NN stats
+
 The steps here are
 1. run DSGE_tune_from_prior.m to get the initial bandwidths.
  to get the indices, load the output file, then do
