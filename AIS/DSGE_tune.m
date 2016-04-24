@@ -1,4 +1,4 @@
-DO_NN = true;
+DO_NN = false;
 DO_PDM = false;
 DO_LOCAL = true;
 
@@ -23,6 +23,8 @@ nparams = rows(theta0);
 
 setupmpi; % sets comm world, nodes, node, etc.
 asbil_theta = theta0; setupdynare; % sets structures and RNG for simulations
+load selected;
+asbil_selected = selected;
 MPI_Barrier(CW);
 warning ( "off") ;
 
@@ -59,7 +61,7 @@ for rep = 1:mc_reps
             i = randi(size(thetahatsLL,1));
             asbil_theta = thetahatsLL(i,:)';
         else
-                asbil_theta = sample_from_prior();
+            asbil_theta = sample_from_prior();
         endif
         ok = false;
         while !ok    
@@ -71,6 +73,8 @@ for rep = 1:mc_reps
         endwhile	
         if DO_NN
             Zn = NNstat(Zn');
+        else
+            Zn = Zn(asbil_selected,:)';    
         endif
         for i = 2:nodes-1
             MPI_Send(Zn, i, mytag, CW);

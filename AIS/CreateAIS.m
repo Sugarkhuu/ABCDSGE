@@ -78,7 +78,7 @@ if node
 				    if DO_NN
                         Z = NNstat(Z');
                     else    
-				        Z = Z(asbil_selected,:);
+				        Z = Z(asbil_selected,:)';
                     endif    
 					contribs(i,:) = [asbil_theta' Z];
 				endif
