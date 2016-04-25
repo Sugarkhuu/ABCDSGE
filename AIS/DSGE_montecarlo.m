@@ -9,8 +9,8 @@ Set DO_NN and DO_PRM as desired.
   and move *.out to that dir.
 6 repeat 1-5 for all the NN and PDM combos  
 #}
-DO_NN = false;
-DO_PDM = false;
+DO_NN = true;
+DO_PDM = true;
 DO_LOCAL = true;
 
 if !DO_LOCAL
@@ -75,10 +75,17 @@ for rep = 1:mc_reps
         endwhile
         realdata = data;
         if DO_NN
-            Zn = NNstat(Zn');  
+            Zn = NNstat(Zn');
         else
             Zn = Zn(asbil_selected,:)';    
         endif
+        if DO_PDM
+            pdm = makepdm(asbil_theta', realdata);
+            Zn = [Zn pdm];
+            n_pdm = size(pdm,2);
+        else
+            n_pdm = 0;    
+        endif 
         for i = 2:nodes-1
             MPI_Send(Zn, i, mytag, CW);
             MPI_Send(realdata, i, mytag+1, CW);
@@ -89,13 +96,12 @@ for rep = 1:mc_reps
         Zn = MPI_Recv(1, mytag, CW);
         realdata = MPI_Recv(1, mytag+1, CW);
     endif
-    if DO_PDM
-        pdm = makepdm(asbil_theta',data);
+    if DO_PDM % nodes need to know the size
+        pdm = makepdm(asbil_theta', realdata);
         n_pdm = size(pdm,2);
-        Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
     else
         n_pdm = 0;    
-    endif  
+    endif 
     MPI_Barrier(CW);    
 	% call the algoritm that gets AIS particles
 	if !node
@@ -129,9 +135,6 @@ for rep = 1:mc_reps
         test = Zs(:,1) != -1000;
         thetas = thetas(test,:);
         Zs = Zs(test,:);
-        if DO_PDM  # pad out with zeros
-            Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
-        endif
         Z = [Zn; Zs];
 	    stdZ = std(Z);
         Z = Z ./stdZ;

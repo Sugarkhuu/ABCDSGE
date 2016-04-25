@@ -1,5 +1,5 @@
-DO_NN = false;
-DO_PDM = false;
+DO_NN = true;
+DO_PDM = true;
 DO_LOCAL = true;
 
 if DO_LOCAL
@@ -76,6 +76,13 @@ for rep = 1:mc_reps
         else
             Zn = Zn(asbil_selected,:)';    
         endif
+        if DO_PDM
+            pdm = makepdm(asbil_theta', realdata);
+            Zn = [Zn pdm];
+            n_pdm = size(pdm,2);
+        else
+            n_pdm = 0;    
+        endif 
         for i = 2:nodes-1
             MPI_Send(Zn, i, mytag, CW);
             MPI_Send(realdata, i, mytag+1, CW);
@@ -90,12 +97,13 @@ for rep = 1:mc_reps
             theta0 = MPI_Recv(1, mytag+2, CW);
         endif    
     endif
-    if DO_PDM
+    if DO_PDM % nodes need to know the size
         pdm = makepdm(asbil_theta', realdata);
         n_pdm = size(pdm,2);
     else
         n_pdm = 0;    
-    endif    
+    endif 
+   
     MPI_Barrier(CW);    
     
     % call the algorithm that gets AIS particles
@@ -121,9 +129,6 @@ for rep = 1:mc_reps
         printf("Starting fit and CI\n");
         thetas = contribs(:,1:nparams);
         Zs = contribs(:, nparams+1:end);
-        if DO_PDM  # pad out with zeros
-            Zn = [Zn zeros(1,n_pdm)]; % pad out for pdms
-        endif
         test = Zs(:,1) != -1000;
         thetas = thetas(test,:);
         Zs = Zs(test,:);

@@ -79,7 +79,11 @@ if node
                         Z = NNstat(Z');
                     else    
 				        Z = Z(asbil_selected,:)';
-                    endif    
+                    endif 
+                    if DO_PDM
+                        pdm = makepdm(asbil_theta', realdata);
+                        Z = [Z pdm];
+                    endif 
 					contribs(i,:) = [asbil_theta' Z];
 				endif
 			endwhile	
@@ -95,6 +99,11 @@ else % frontend
     else
         Zs = Zs(:,asbil_selected);
     endif
+    if DO_PDM
+        pdm = makepdm(thetas, realdata);
+        Zs = [Zs pdm];
+    endif
+    size(Zs) 
 	particles = [thetas Zs];
     scale = std([Zn;Zs]);
 	[particles, dist] = select_particles(Zn, particles(1:end-1,:), particles(end,:), initialparticles, scale);
