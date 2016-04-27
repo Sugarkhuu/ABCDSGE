@@ -103,7 +103,6 @@ else % frontend
         pdm = makepdm(thetas, realdata);
         Zs = [Zs pdm];
     endif
-    size(Zs) 
 	particles = [thetas Zs];
     scale = std([Zn;Zs]);
 	[particles, dist] = select_particles(Zn, particles(1:end-1,:), particles(end,:), initialparticles, scale);

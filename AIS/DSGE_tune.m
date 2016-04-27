@@ -1,4 +1,4 @@
-DO_NN = true;
+DO_NN = false;
 DO_PDM = true;
 DO_LOCAL = true;
 

@@ -1,4 +1,4 @@
-load tuned_from_prior.out;
+load tuned_local.out;
 parameters;
 theta0 = lb_param_ub(:,2);
 rep = rows(thetahatsLC);
