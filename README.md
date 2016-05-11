@@ -14,7 +14,7 @@ computed using importance sampling and local linear nonparametric
 regression. 
 
 Requires Open MPI, Julia (with MPI and Distances packages), Octave (with MPI
-package) and other supporting code available at https://github.com/mcreel/Econometrics
+package), Dynare, and other supporting code available at https://github.com/mcreel/Econometrics
 
 To replicate the results, execute "sh MasterScript" from the bash prompt.
 You need to edit DSGE_tune.m and DSGE_montecarlo.m to choose switch on/of
