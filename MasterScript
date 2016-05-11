@@ -48,12 +48,12 @@ LOCATION=`pwd`
 # cp selected.dsge ../AIS/selected
 
 # do the estimation using importance sampling,
-# and nonparametric fitting. Bandwidths are 
-# already pre-tuned
+# and nonparametric fitting.
 cd $LOCATION/AIS
 ./propagate
 sync
 rm simdata.paramspace
 ln -s ../GenData/simdata.dsge simdata.paramspace
-mpirun -np 31 octave --eval DSGE_montecarlo
+mpirun -np 26 octave --eval DSGE_tune
+mpirun -np 26 octave --eval DSGE_montecarlo
 orte-clean

@@ -9,7 +9,7 @@ Set DO_NN and DO_PRM as desired.
   and move *.out to that dir.
 6 repeat 1-5 for all the NN and PDM combos  
 #}
-DO_NN = false;
+DO_NN = true;
 DO_PDM = true;
 DO_LOCAL = true;
 
@@ -81,6 +81,7 @@ for rep = 1:mc_reps
         endif
         if DO_PDM
             pdm = makepdm(asbil_theta', realdata);
+            pdm = pdm - pdm; % for real data, it's zeros
             Zn = [Zn pdm];
             n_pdm = size(pdm,2);
         else

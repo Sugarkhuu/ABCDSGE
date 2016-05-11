@@ -11,6 +11,7 @@ priorrmse = sqrt(priorbias.^2 + priorsdev.^2);
 
 relbs = zeros(9,4);
 relrmses = relbs;
+rmses = relbs;
 incis = relbs;
 for i = 1:4
     if i == 1
@@ -34,12 +35,16 @@ for i = 1:4
     relrmse = rmse ./ theta0';
     relbs(:,i) = relb;
     relrmses(:,i) = relrmse;
+    rmses(:,i) = rmse;
     in_ci = (cilower <= theta0') & (ciupper >= theta0');
     incis(:,i) = mean(100*in_ci)';
 endfor
 format('bank');
 100*relbs
+mean(abs(ans))
 100*relrmses
+mean(ans)
+%rmses
 incis
-%printf("%5.2f %5.2f\n",vec(100*[relb' relrmse']'));
+mean(incis)
 

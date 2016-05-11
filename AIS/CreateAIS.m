@@ -81,6 +81,7 @@ if node
 				        Z = Z(asbil_selected,:)';
                     endif 
                     if DO_PDM
+                        %pdm = makepdm(asbil_theta', data) - makepdm(asbil_theta', realdata);
                         pdm = makepdm(asbil_theta', realdata);
                         Z = [Z pdm];
                     endif 
@@ -99,19 +100,20 @@ else % frontend
     else
         Zs = Zs(:,asbil_selected);
     endif
+    scale = std(Zs);
     if DO_PDM
-        pdm = makepdm(thetas, realdata);
+        pdm = 0.00000001*randn(rows(Zs),n_pdm); % start with noise
         Zs = [Zs pdm];
+        scale = [scale ones(1, n_pdm)]; % large scale means pdm irrelevant here
     endif
 	particles = [thetas Zs];
-    scale = std([Zn;Zs]);
 	[particles, dist] = select_particles(Zn, particles(1:end-1,:), particles(end,:), initialparticles, scale);
-	for iter = 1:iters	
+    %scale = [std(particles(:,nparams+1:end-n_pdm)) ones(1,n_pdm)];
+    for iter = 1:iters	
 		% send particles to all nodes
 		for i = 1:nodes-1
 			MPI_Send(particles, i, mytag, CW);
 		endfor
-		oldparticles = particles;
 		% receive new particles from nodes
 		for i = 1:nodes-1
 			contrib = MPI_Recv(i, mytag, CW);
@@ -122,8 +124,12 @@ else % frontend
 			endif
 		endfor
         if iter < iters
-                keep = ceil(nparticles*particlequantile/100);
-	            [particles, dist] = select_particles(Zn, oldparticles, particles, keep, scale);
+            keep = ceil(nparticles*particlequantile/100);
+            if iter == 1
+                oldparticles = particles(1,:);
+                scale = std(particles(:,nparams+1:end));
+            endif    
+	        [particles, dist] = select_particles(Zn, oldparticles, particles, keep, scale);
         endif
 		if verbose
 			printf("Iteration %d\n", iter);

@@ -1,4 +1,4 @@
-DO_NN = false;
+DO_NN = true;
 DO_PDM = true;
 DO_LOCAL = true;
 
@@ -63,14 +63,14 @@ for rep = 1:mc_reps
         else
             asbil_theta = sample_from_prior();
         endif
+        theta0 = asbil_theta;
         ok = false;
         while !ok    
-            theta0 = asbil_theta;
             USERsimulation;
             Zn = aux_stat(data);
-            realdata = data;
             ok = Zn(1,:) != -1000;
         endwhile	
+        realdata = data;
         if DO_NN
             Zn = NNstat(Zn');
         else
@@ -78,6 +78,7 @@ for rep = 1:mc_reps
         endif
         if DO_PDM
             pdm = makepdm(asbil_theta', realdata);
+            pdm = pdm - pdm; % for real data, it's zero
             Zn = [Zn pdm];
             n_pdm = size(pdm,2);
         else
@@ -108,19 +109,18 @@ for rep = 1:mc_reps
     
     % call the algorithm that gets AIS particles
     if ! node
-            tic;
-            printf("Starting CreateAIS\n");
+        tic;
+        printf("Starting CreateAIS\n");
     endif
     CreateAIS; # this gets the particles
 
     % now draw from the AIS density
     reps_per_node = round(AISdraws/(nodes-1));
     if ! node
-            toc;
-            printf("Starting SampleFromAIS\n");
-            tic;
+        toc;
+        printf("Starting SampleFromAIS\n");
+        tic;
     endif
-    
     SampleFromAIS; # this samples from AIS density
     
     % see the results
@@ -132,14 +132,11 @@ for rep = 1:mc_reps
         test = Zs(:,1) != -1000;
         thetas = thetas(test,:);
         Zs = Zs(test,:);
-        dstats([thetas Zs]);
-        Z = [Zn; Zs];
-	    stdZ = std(Z);
-        Z = Z ./stdZ;
-        Zs = Z(2:end,:);
-		Zn = Z(1,:);
+	    stdZ = std(Zs);
+        Zs = Zs ./stdZ;
+		Zn = Zn./stdZ;
      
-        % loop over bandwidths: they go from 0.1 to 10, quadratically
+        % loop over bandwidths: they go from 0.001 to 10, quadratically
         for bwiter = 1:nbw
             bandwidth = bandwidths(bwiter,:);        
             % now the fit using mean and mediani
@@ -150,16 +147,12 @@ for rep = 1:mc_reps
             thetahat = r.mean';
             thetahat = keep_in_support(thetahat); % chop off estimates that go out of support (rare, but happens)
             % now CIs
-            weight = __kernel_normal((Zs-Zn)/bandwidth);
-            weight = weight/sum(weight(:));
             % the nonparametric fits, use local linear
             r = LocalConstant(thetas, weight, true);
             %r = LocalPolynomial(thetas, Zs, Zn, weight, true, 1);
-
-            % CI coverage
             in10 = ((theta0 > r.c') & (theta0 < r.d'));
             in_ci(:,bwiter) = in_ci(:,bwiter) + in10;
-            errors(rep,:,bwiter) = thetahat'- theta0';
+            errors(rep,:,bwiter) = (thetahat'- theta0');
             rmse = zeros(9,1);
             if rep > 1
                 printf("bandwidth = %f\n", bandwidth);    

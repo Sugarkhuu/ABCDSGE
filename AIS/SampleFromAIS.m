@@ -74,7 +74,7 @@ if node
                 Z = Z(asbil_selected,:)';
             endif
             if DO_PDM    
-                pdm = makepdm(asbil_theta', realdata);
+                pdm = makepdm(asbil_theta', data) - makepdm(asbil_theta', realdata);
                 Z = [Z pdm];
             end     
         else
