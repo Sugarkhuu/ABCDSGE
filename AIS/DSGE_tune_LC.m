@@ -8,7 +8,7 @@ else
     outfile = "tunePRIOR.out";
 endif
 
-mc_reps = 200; % number of MC reps
+mc_reps = 50; % number of MC reps
 nworkers = 25;  % number of worker MPI ranks
 
 SetupAIS;
@@ -58,8 +58,8 @@ for rep = 1:mc_reps
             if rep==1
                     load tuned_from_prior.out;
             endif
-            i = randi(size(thetahatsLL,1));
-            asbil_theta = thetahatsLL(i,:)';
+            i = randi(size(thetahatsLC,1));
+            asbil_theta = thetahatsLC(i,:)';
         else
             asbil_theta = sample_from_prior();
         endif
@@ -142,14 +142,9 @@ for rep = 1:mc_reps
             % now the fit using mean and mediani
             weight = __kernel_normal((Zs-Zn)/bandwidth);
             weight = weight/sum(weight(:));
-            % the nonparametric fits, use local linear
-            r = LocalPolynomial(thetas, Zs, Zn,  weight, false, 1);
+            r = LocalConstant(thetas, weight, true);
             thetahat = r.mean';
             thetahat = keep_in_support(thetahat); % chop off estimates that go out of support (rare, but happens)
-            % now CIs
-            % the nonparametric fits, use local linear
-            r = LocalConstant(thetas, weight, true);
-            %r = LocalPolynomial(thetas, Zs, Zn, weight, true, 1);
             in10 = ((theta0 > r.c') & (theta0 < r.d'));
             in_ci(:,bwiter) = in_ci(:,bwiter) + in10;
             errors(rep,:,bwiter) = (thetahat'- theta0');

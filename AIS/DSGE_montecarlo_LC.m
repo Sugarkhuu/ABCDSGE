@@ -18,7 +18,7 @@ if !DO_LOCAL
 else
     outfile = "tuned_local.out";
 endif    
-mc_reps = 1000; % number of MC reps
+mc_reps = 100; % number of MC reps
 nworkers = 25;  % number of worker MPI ranks
 
 SetupAIS; # done in one place for uniformity
@@ -53,15 +53,7 @@ if !node
 	USERthetaZ = clean_data(simdata);
 	% containers
 	thetahatsLC = zeros(mc_reps, nparams);
-	thetahatsLC50 = zeros(mc_reps, nparams);
-	thetahatsLL = zeros(mc_reps, nparams);
-	thetahatsLL50 = zeros(mc_reps, nparams);
-	thetahatsLQ = zeros(mc_reps, nparams);
-	thetahatsLQ50 = zeros(mc_reps, nparams);
-	cilower = zeros(mc_reps, nparams);
-	ciupper = zeros(mc_reps, nparams);
 endif
-
 
 for rep = 1:mc_reps
     % the 'true' Zn
@@ -150,28 +142,11 @@ for rep = 1:mc_reps
         weights = AISweights.*weights; # AIS_weights != 1 is for SBIL by AIS
         weights = weights./sum(weights);
         thetahatLC = zeros(1,9);
-        thetahatLL = zeros(1,9);
-        thetahatLQ = zeros(1,9);
-        thetahatLC50 = zeros(1,9);
-        thetahatLL50 = zeros(1,9);
-        thetahatLQ50 = zeros(1,9);
         for i = 1:9
                 r = LocalConstant(thetas(:,i), weights(:,i), false);
                 thetahatLC(:,i) = r.mean;
-                thetahatLC50(:,i) = r.median;
-                r = LocalPolynomial(thetas(:,i), Zs, Zn, weights(:,i), false, 1);
-                thetahatLL(:,i) = r.mean;
-                thetahatLL50(:,i) = r.median;
-                r = LocalPolynomial(thetas(:,i), Zs, Zn, weights(:,i), false, 2);
-                thetahatLQ(:,i) = r.mean;
-                thetahatLQ50(:,i) = r.median;
         endfor
         thetahatLC = keep_in_support(thetahatLC);
-        thetahatLC50 = keep_in_support(thetahatLC50);
-        thetahatLL = keep_in_support(thetahatLL);
-        thetahatLL50 = keep_in_support(thetahatLL50);
-        thetahatLQ = keep_in_support(thetahatLQ);
-        thetahatLQ50 = keep_in_support(thetahatLQ50);
         % confidence intervals
         % weights
         %AISweights = prior(thetas) ./ (mixture*prior(thetas) + (1-mixture)*AIS_density(thetas, particles(:,1:nparams)));
@@ -199,14 +174,9 @@ for rep = 1:mc_reps
         in10 = ((theta0 > lower) & (theta0 < upper));
         in_ci = in_ci + in10;
         thetahatsLC(rep,:) = thetahatLC;
-        thetahatsLC50(rep,:) = thetahatLC50;
-        thetahatsLL(rep,:) = thetahatLL;
-        thetahatsLL50(rep,:) = thetahatLL50;
-        thetahatsLQ(rep,:) = thetahatLQ;
-        thetahatsLQ50(rep,:) = thetahatLQ50;
         cilower(rep,:) = lower';
         ciupper(rep,:) = upper';
-        save(outfile, "thetahatsLC", "thetahatsLC50","thetahatsLL", "thetahatsLL50", "thetahatsLQ", "thetahatsLQ50", "cilower", "ciupper");
+        save(outfile, "thetahatsLC");
 		if rep > 1
 			contrib = thetahatsLC(1:rep,:);
 			m = mean(contrib);
@@ -239,167 +209,6 @@ for rep = 1:mc_reps
 			printf("\n\nEstimation results (LC mean): rep %d\n", rep);
 			prettyprint([theta0'; m; priormean; s; priorsdev; b ; priorbias; rmse; priorrmse]', rlabels, clabels);
 			printf("\n\n");
-            % now median
-			contrib = thetahatsLC50(1:rep,:);
-			m = mean(contrib);
-			s = std(contrib);
-			e = contrib - repmat(theta0',rows(contrib),1);
-			b = mean(e);
-			e = e.^2;
-			mse = mean(e);
-			rmse = sqrt(mse);
-			lb = lb_param_ub(:,1);
-			ub = lb_param_ub(:,3);
-			priormean = (ub+lb)'/2;
-			priorsdev = sqrt(((ub-lb).^2)/12);
-			priorsdev = priorsdev';
-			priorbias = priormean - theta0';
-			priorrmse = sqrt(priorbias.^2 + priorsdev.^2);
-			mae = mean(abs(e));
-			clabels = char("true", "mean", "pmean", "sdev.","psdev", "bias", "pbias","rmse", "prmse");
-			rlabels = char(
-			"alpha",
-			"beta",
-			"delta",
-			"gam",
-			"rho1",
-			"sigma1",
-			"rho2",
-			"sigma2",
-			"nss"
-			);
-			printf("\n\nEstimation results (LC median): rep %d\n", rep);
-			prettyprint([theta0'; m; priormean; s; priorsdev; b ; priorbias; rmse; priorrmse]', rlabels, clabels);
-			printf("\n\n");
-			contrib = thetahatsLL(1:rep,:);
-			m = mean(contrib);
-			s = std(contrib);
-			e = contrib - repmat(theta0',rows(contrib),1);
-			b = mean(e);
-			e = e.^2;
-			mse = mean(e);
-			rmse = sqrt(mse);
-			lb = lb_param_ub(:,1);
-			ub = lb_param_ub(:,3);
-			priormean = (ub+lb)'/2;
-			priorsdev = sqrt(((ub-lb).^2)/12);
-			priorsdev = priorsdev';
-			priorbias = priormean - theta0';
-			priorrmse = sqrt(priorbias.^2 + priorsdev.^2);
-			mae = mean(abs(e));
-			clabels = char("true", "mean", "pmean", "sdev.","psdev", "bias", "pbias","rmse", "prmse");
-			rlabels = char(
-			"alpha",
-			"beta",
-			"delta",
-			"gam",
-			"rho1",
-			"sigma1",
-			"rho2",
-			"sigma2",
-			"nss"
-			);
-			printf("\n\nEstimation results (LL mean): rep %d\n", rep);
-			prettyprint([theta0'; m; priormean; s; priorsdev; b ; priorbias; rmse; priorrmse]', rlabels, clabels);
-			printf("\n\n");
-            % now median
-			contrib = thetahatsLL50(1:rep,:);
-			m = mean(contrib);
-			s = std(contrib);
-			e = contrib - repmat(theta0',rows(contrib),1);
-			b = mean(e);
-			e = e.^2;
-			mse = mean(e);
-			rmse = sqrt(mse);
-			lb = lb_param_ub(:,1);
-			ub = lb_param_ub(:,3);
-			priormean = (ub+lb)'/2;
-			priorsdev = sqrt(((ub-lb).^2)/12);
-			priorsdev = priorsdev';
-			priorbias = priormean - theta0';
-			priorrmse = sqrt(priorbias.^2 + priorsdev.^2);
-			mae = mean(abs(e));
-			clabels = char("true", "mean", "pmean", "sdev.","psdev", "bias", "pbias","rmse", "prmse");
-			rlabels = char(
-			"alpha",
-			"beta",
-			"delta",
-			"gam",
-			"rho1",
-			"sigma1",
-			"rho2",
-			"sigma2",
-			"nss"
-			);
-			printf("\n\nEstimation results (LL median): rep %d\n", rep);
-			prettyprint([theta0'; m; priormean; s; priorsdev; b ; priorbias; rmse; priorrmse]', rlabels, clabels);
-			printf("\n\n");
-			contrib = thetahatsLQ(1:rep,:);
-			m = mean(contrib);
-			s = std(contrib);
-			e = contrib - repmat(theta0',rows(contrib),1);
-			b = mean(e);
-			e = e.^2;
-			mse = mean(e);
-			rmse = sqrt(mse);
-			lb = lb_param_ub(:,1);
-			ub = lb_param_ub(:,3);
-			priormean = (ub+lb)'/2;
-			priorsdev = sqrt(((ub-lb).^2)/12);
-			priorsdev = priorsdev';
-			priorbias = priormean - theta0';
-			priorrmse = sqrt(priorbias.^2 + priorsdev.^2);
-			mae = mean(abs(e));
-			clabels = char("true", "mean", "pmean", "sdev.","psdev", "bias", "pbias","rmse", "prmse");
-			rlabels = char(
-			"alpha",
-			"beta",
-			"delta",
-			"gam",
-			"rho1",
-			"sigma1",
-			"rho2",
-			"sigma2",
-			"nss"
-			);
-			printf("\n\nEstimation results (LQ mean): rep %d\n", rep);
-			prettyprint([theta0'; m; priormean; s; priorsdev; b ; priorbias; rmse; priorrmse]', rlabels, clabels);
-			printf("\n\n");
-            % now median
-			contrib = thetahatsLQ50(1:rep,:);
-			m = mean(contrib);
-			s = std(contrib);
-			e = contrib - repmat(theta0',rows(contrib),1);
-			b = mean(e);
-			e = e.^2;
-			mse = mean(e);
-			rmse = sqrt(mse);
-			lb = lb_param_ub(:,1);
-			ub = lb_param_ub(:,3);
-			priormean = (ub+lb)'/2;
-			priorsdev = sqrt(((ub-lb).^2)/12);
-			priorsdev = priorsdev';
-			priorbias = priormean - theta0';
-			priorrmse = sqrt(priorbias.^2 + priorsdev.^2);
-			mae = mean(abs(e));
-			clabels = char("true", "mean", "pmean", "sdev.","psdev", "bias", "pbias","rmse", "prmse");
-			rlabels = char(
-			"alpha",
-			"beta",
-			"delta",
-			"gam",
-			"rho1",
-			"sigma1",
-			"rho2",
-			"sigma2",
-			"nss"
-			);
-			printf("\n\nEstimation results (LQ median): rep %d\n", rep);
-			prettyprint([theta0'; m; priormean; s; priorsdev; b ; priorbias; rmse; priorrmse]', rlabels, clabels);
-			printf("\n\n");
-            printf("90%% CI coverage: \n");
-            disp(in_ci/rep);
-            disp([lower upper]);
             printf("\n");
 		endif
     endif
