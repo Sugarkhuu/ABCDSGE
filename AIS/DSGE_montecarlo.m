@@ -19,7 +19,7 @@ else
     outfile = "tuned_local.out";
 endif    
 mc_reps = 100; % number of MC reps
-nworkers = 25;  % number of worker MPI ranks
+nworkers = 20;  % number of worker MPI ranks
 
 SetupAIS; # done in one place for uniformity
 
@@ -62,6 +62,7 @@ if !node
 	ciupper = zeros(mc_reps, nparams);
 endif
 
+MPI_Barrier(CW);
 
 for rep = 1:mc_reps
     % the 'true' Zn
@@ -119,10 +120,9 @@ for rep = 1:mc_reps
             tic;
     endif  
     SampleFromAIS; # this samples from AIS density
-
-
-	% see the results
-
+    MPI_Barrier(CW);
+	
+    % see the results
    	if !node
         toc;    
         % create the bandwidths used in tuning

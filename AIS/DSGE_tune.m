@@ -1,5 +1,5 @@
 DO_NN = true;
-DO_PDM = true;
+DO_PDM = false;
 DO_LOCAL = true;
 
 if DO_LOCAL
@@ -8,8 +8,8 @@ else
     outfile = "tunePRIOR.out";
 endif
 
-mc_reps = 200; % number of MC reps
-nworkers = 25;  % number of worker MPI ranks
+mc_reps = 100; % number of MC reps
+nworkers = 20; % number of worker MPI ranks
 
 SetupAIS;
 
@@ -186,6 +186,7 @@ for rep = 1:mc_reps
         endfor   
         save(outfile, "bandwidths", "cicoverage", "rmses");
     endif
+    MPI_Barrier(CW);
 endfor
 if !node
     [junk, bwselect] = min(rmses');
