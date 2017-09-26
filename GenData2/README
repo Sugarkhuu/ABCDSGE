@@ -1,0 +1,4 @@
+This generates 1000 draws from model at the true parameter
+values, and saves the sample data. This is for Monte Carlo
+study of estimation methods that do not require simulability,
+e.g., GMM, MCMCGMM, or ABCGMM.
